@@ -65,17 +65,18 @@ const runSync = async () => {
   setTimeout(runSync, 10 * 1000) // every 10 seconds
 }
 
-runSync()
+// wait 2 seconds for our initial sync (lets our data load)
+setTimeout(runSync, 2 * 1000)
 
 async function handleConflicts(conflicts: { local: any, remote: any }[]): Promise<any[]> {
   if (conflicts.length === 0) return []
 
-  return new Promise((res) => {
+  return new Promise(resolve => {
     openModal({
       title: 'Handle Conflicts',
-      type: 'handleConflicts',
+      type: 'HandleConflicts',
       data: conflicts,
-      onSave: res
+      onSave: resolve
     })
   })
 }
@@ -84,7 +85,9 @@ type PullFunction = () => Promise<any[]>
 
 type BulkPut = (docs: any[]) => Promise<any>
 
-type PushFunction = () => Promise<{ local: any, remote: any }[]>
+type PushFunction = () => Promise<{ conflicts: any[], metadata: any[] }>
+
+type Get = () => Promise<any[]>
 
 async function handlePullUpdates(bulkPut: BulkPut, pull: PullFunction, localDocuments: any[]) {
   let pullUpdates = true
@@ -101,7 +104,10 @@ async function handlePullUpdates(bulkPut: BulkPut, pull: PullFunction, localDocu
       const local = new Date(localDocument.updated_at).getTime()
       const remote = new Date(doc.updated_at).getTime()
 
-      return (local > remote) ? { local: localDocument, remote: doc } : []
+      const doVersionsMatch = (localDocument.version === doc.version)
+      const wasUpdatedLocaly = (local >= remote)
+
+      return (doVersionsMatch && wasUpdatedLocaly) ? [] : { local: localDocument, remote: doc }
     })
 
     const chosen = await handleConflicts(pullConflicts)
@@ -118,20 +124,44 @@ async function handlePullUpdates(bulkPut: BulkPut, pull: PullFunction, localDocu
   }
 }
 
-async function handlePushingUpdates(bulkPut: BulkPut, push: PushFunction) {
+async function handlePushingUpdates(bulkPut: BulkPut, push: PushFunction, localDocuments: any[]) {
   let pushUpdates = true
   while (pushUpdates) {
-    const pushConflicts = await push()
+    const { conflicts, metadata } = await push()
 
-    if (pushConflicts.length === 0) {
+    if (conflicts.length === 0) {
       pushUpdates = false
       console.log('no conflicts')
     }
 
+    // we need to combine our metadata with our local documents (version hash updates, server id generation, etc.)
+    const updatedDocs = metadata.map(data => {
+      const localDoc = localDocuments.find(doc => doc.local_id === data.local_id)
+
+      return {
+        ...localDoc,
+        ...data
+      }
+    })
+
+    // store our updated docs.
+    await bulkPut(updatedDocs)
+
+    const pushConflicts = conflicts.flatMap(doc => {
+      const localDocument = localDocuments.find(localDoc => localDoc.local_id === doc.local_id)
+
+      if (!localDocument) return []
+
+      return { local: localDocument, remote: doc }
+    })
+
     const chosen = await handleConflicts(pushConflicts)
+
+    console.log(chosen)
 
     await bulkPut(chosen)
     // TODO: we may need to reSync to push up our chosen conflict resolutions.
+    // can possibly get away without a reSync if we just update the updated_at field so it gets picked up in the next sync cycle.
 
     console.log('conflicts handled', pushConflicts.length)
   }
@@ -139,8 +169,9 @@ async function handlePushingUpdates(bulkPut: BulkPut, push: PushFunction) {
 
 export const sync = async () => {
   const { isOnline } = syncState.get()
+  const { isLoggedIn } = authState.get()
 
-  if (!isOnline) return
+  if (!isOnline || !isLoggedIn) return
 
   // Update synced characters array first.
   const synced = await SyncStorage.get<string[]>('synced_characters') || []
@@ -153,7 +184,7 @@ export const sync = async () => {
 
     await handlePullUpdates(coll.bulkPut, coll.pull, await coll.get())
 
-    await handlePushingUpdates(coll.bulkPut, coll.push)
+    await handlePushingUpdates(coll.bulkPut, coll.push, await coll.get())
   }
 
   // TODO: setup websocket connection for real-time updates.
@@ -168,7 +199,6 @@ window.addEventListener('online', async () => {
   
   if (!isOnline) {
     console.log('not connected')
-    return
   }
 
   sync()
