@@ -2,21 +2,22 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useParams } from 'react-router'
 
-import RenderEditorData from '../designer/RenderEditorData'
+import RenderEditorData from '@designer/RenderEditorData'
 
-import Header from '../components/Header'
+import Header from '@components/Header'
 
-import Select from '../components/inputs/Select'
-import { useCharacter } from '../hooks/useCharacter'
+import Select from '@components/inputs/Select'
+import { useCharacter } from '@hooks/useCharacter'
 
 import lz from 'lzutf8'
-import { BlueprintProcessorState } from '../utils/Blueprints/processBlueprint'
+import { BlueprintProcessorState } from '@utils/Blueprints/processBlueprint'
 import { deepEqual } from 'fast-equals'
-import { updateCharacterData } from '../storage/methods/characters'
-import { Character } from '../storage/schemas/character'
+import { updateCharacterData } from '@storage/methods/characters'
+import { Character } from '@storage/schemas/character'
 
-import { type PageData, SystemData } from '../storage/schemas/system'
-import getVersionedResource from '../storage/methods/versionedresources/getVersionedResource'
+import { type PageData, SystemData } from '@storage/schemas/system'
+import getVersionedResource from '@storage/methods/versionedresources/getVersionedResource'
+import CharacterSidebar from '@sidebars/Character'
 
 const CharacterPage: React.FC = () => {
   const { id } = useParams<{ id: string; }>()
@@ -62,22 +63,24 @@ const CharacterPage: React.FC = () => {
   return (
     <div className='flex flex-col h-full w-full'>
       <p id='loading-text' className='hidden'>loading...</p>
-      <Header title={character.name} />
+      <Header title={character.name} hasSidebar />
 
-      <div className='flex flex-row flex-grow overflow-hidden'>
+      <div className='p-4 sm:mr-64 relative flex flex-col flex-grow overflow-hidden lg:grid grid-cols-2'>
 
-        <div className='relative w-full lg:w-1/2 max-h-full flex flex-col'>
+        <div className='relative w-full max-h-full flex flex-col'>
           <div className='overflow-y-scroll p-4'>
             <RenderTab className='first-tab-selector' system={system} character={character} updateState={updateState} />
           </div>
         </div>
 
-        <div className='relative w-1/2 hidden flex-col lg:flex max-h-full'>
+        <div className='relative hidden flex-col lg:flex max-h-full'>
           <div className='overflow-y-scroll p-4'>
             <RenderTab className='second-tab-selector' system={system} character={character} updateState={updateState} />
           </div>
         </div>
       </div>
+
+      <CharacterSidebar actions={system.actions} system={system} character={character} updateState={updateState} />
     </div>
   )
 }

@@ -1,17 +1,23 @@
-import Header from '../components/Header'
+import Header from '@components/Header'
 
-import Select from '../components/inputs/Select'
+import Select from '@components/inputs/Select'
 
-import { themesState } from '../state/themes'
-import { setErudaActive, setTheme, settingsState } from '../state/settings'
-import Checkbox from '../components/inputs/Checkbox'
-import Button from '../components/inputs/Button'
-import { logout, openBilling, subscribe } from '../lib/api'
-import { authState } from '../state/auth'
-import getPermsFromRole from '../utils/getPermsFromRole'
-import { openModal } from '../state/modals'
-import Tabs from '../components/Tabs'
+import { themesState } from '@state/themes'
+import { setErudaActive, setTheme, settingsState } from '@state/settings'
+import Checkbox from '@components/inputs/Checkbox'
+import Button from '@components/inputs/Button'
+import { authState } from '@state/auth'
+import getPermsFromRole from '@utils/getPermsFromRole'
+import { openModal } from '@state/modals'
+import Tabs from '@components/Tabs'
 import React from "react";
+import {subscribe} from "@api/subscribe";
+import {openBilling} from "@api/openBilling";
+import {logout} from "@api/logout";
+import {getDiscordLogin} from "@utils/getDiscordLogin";
+import ConfirmModal from '@modals/ConfirmModal'
+import AuthModal from '@modals/Auth'
+import clearLocalStorage from '@utils/clearLocalStorage'
 
 const tabs = [
   { id: 'profile', label: 'Profile', Content: ({ isLoggedIn, user }: any) => {
@@ -36,29 +42,43 @@ const tabs = [
               <Button color='primary' onClick={async () => {
                 let url = ''
 
-                if (user.role === 0) {
+                if (user.role < 200) {
                   const { url: newUrl } = await subscribe()
                   url = newUrl
-                } else if (user.role === 1) {
+                } else if (user.role < 300) {
                   const { url: newUrl } = await openBilling()
                   url = newUrl
                 }
 
                 window.open(url, '_self')
               }}>
-                {(user.role === 0) ? 'Subscribe' : (user.role === 1) ? 'Manage Subscription' : 'Thank you for everything!'}
+                {(user.role < 200) ? 'Subscribe' : (user.role < 300) ? 'Manage Subscription' : 'Thank you for everything!'}
               </Button>
             </div>
+
+            {!user.discord_id && (
+              <div className='flex flex-col w-full bg-neutral-800 p-4 rounded-lg border-indigo-500 border'>
+                <p className='text-lg'>Discord Integration</p>
+                <p className='mb-4'>Link your Discord account to access additional features</p>
+                <Button color='primary' onClick={async () => {
+                  const url = await getDiscordLogin()
+                  if (url) {
+                    window.open(url, '_self')
+                  }
+                }}>
+                  Connect Discord Account
+                </Button>
+              </div>
+            )}
 
             <div className='flex flex-col w-full bg-neutral-800 p-4 rounded-lg border-red-500 border'>
               <p className='text-lg'>Danger Zone</p>
               <p className='mb-4 text-red-500'>All local data is cleared (unsynced data will be lost)</p>
-              <Button color='danger' onClick={() => openModal({
-                type: 'confirm',
-                title: 'Logout',
-                data: { type: 'danger', message: 'All local data is cleared (unsynced data will be lost)' },
-                onSave: logout
-              })}>
+              <Button color='danger' onClick={() =>
+                openModal('confirm', ({ id }) => (
+                  <ConfirmModal id={id} title='Logout' type='danger' message='All local data is cleared (unsynced data will be lost)' onConfirm={logout} />
+                ))
+              }>
                 Logout
               </Button>
             </div>
@@ -67,14 +87,7 @@ const tabs = [
         <div className='flex flex-col items-center justify-center h-full'>
           <p className='text-lg'>You are not logged in</p>
           <p className='mb-4'>Login to access your profile</p>
-          <Button color='light' onClick={() => {
-            openModal({
-              type: 'authentication',
-              title: '',
-              data: null,
-              onSave: () => {},
-            })
-          }}>Login / Register</Button>
+          <Button color='light' onClick={() => openModal('auth', ({ id }) => <AuthModal id={id} />)}>Login / Register</Button>
         </div>
       )}
       </div>
@@ -93,6 +106,9 @@ const tabs = [
       <>
         <p className='my-2'><a className='underline' href='https://eruda.liriliri.io/' target='_blank'>Eruda</a> allows access to the development console on mobile.</p>
         <Checkbox id='use-eruda' label='Load Eruda' checked={settings.isErudaActive} onChange={setErudaActive} />
+
+        <p className='my-2'>Clear Local Storage</p>
+        <Button color='danger' onClick={clearLocalStorage} >Clear Local Storage</Button>
       </>
     )
   }},

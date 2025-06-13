@@ -3,10 +3,10 @@ import { findEntryNode } from './findEntryNode'
 import { Node } from '@xyflow/react'
 import { getNode } from './getNode'
 import { getNodeScript } from './getNodeScript'
-import { BlueprintData } from '../../types/blueprint'
+import { BlueprintData } from '@/types/blueprint'
 
-import { type PageData, SystemData } from '../../storage/schemas/system'
-import { type Character } from '../../storage/schemas/character'
+import { type PageData, SystemData } from '@storage/schemas/system'
+import { type Character } from '@storage/schemas/character'
 
 export type BlueprintProcessorState = {
   system: SystemData;
@@ -113,6 +113,10 @@ class BlueprintProcessor {
     }
 
     return this.params
+  }
+
+  getState() {
+    return this.state
   }
 
   getCharacter() {

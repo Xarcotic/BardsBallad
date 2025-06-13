@@ -1,21 +1,18 @@
-import { useMemo, useState } from 'react'
-import Button from '../components/inputs/Button'
-import TextInput from '../components/inputs/TextInput'
-import Modal from '../components/Modal'
-import ModalBody from '../components/Modal/Body'
-import ModalFooter from '../components/Modal/Footer'
-import ModalHeader from '../components/Modal/Header'
-import { authState } from '../state/auth'
-import { login, register } from '../lib/api'
+import { useCallback, useMemo, useState } from 'react'
+import Button from '@components/inputs/Button'
+import TextInput from '@components/inputs/TextInput'
+import Modal from '@components/Modal'
+import ModalBody from '@components/Modal/Body'
+import ModalHeader from '@components/Modal/Header'
+import { login } from "@api/login";
+import { register } from "@api/register";
+import { closeModal } from '@state/modals'
 
 type Props = {
-  isOpen: boolean;
-  requestClose(): void;
+  id: number
 }
 
-const AuthModal: React.FC<Props> = (props) => {
-  const { isOpen, requestClose } = props
-
+const AuthModal: React.FC<Props> = ({ id }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   
   const [username, setUsername] = useState('');
@@ -24,6 +21,8 @@ const AuthModal: React.FC<Props> = (props) => {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const title = useMemo(() => isSignUp ? 'Sign Up' : 'Login', [isSignUp])
+
+  const requestClose = useCallback(() => closeModal(id), [id])
 
   const handleSignUp = async () => {
     await register(username, email, password)
@@ -34,7 +33,7 @@ const AuthModal: React.FC<Props> = (props) => {
   }
 
   return (
-      <Modal isOpen={isOpen} onClose={requestClose}>
+      <Modal isOpen onClose={requestClose}>
         <ModalHeader title={title} onClose={requestClose} />
   
         <ModalBody>
@@ -113,3 +112,4 @@ const AuthModal: React.FC<Props> = (props) => {
 }
 
 export default AuthModal
+
